@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Min Hemsida med Chat och Användarnamn</title>
+<style>
+    * {margin:0; padding:0; box-sizing:border-box;}
+    body {font-family: Arial; line-height:1.6; background:#f4f4f4; display:flex; flex-direction:column; min-height:100vh;}
+    header {background:#333; color:white; padding:1rem 2rem; display:flex; justify-content:space-between; align-items:center;}
+    nav a {color:white; text-decoration:none; margin-left:20px;}
+    nav a:hover {text-decoration:underline;}
+    .hero {background:linear-gradient(to right,#4e73df,#1cc88a); color:white; padding:100px 20px; text-align:center;}
+    .hero h1 {font-size:3rem; margin-bottom:20px;}
+    .container {padding:40px 20px; max-width:1000px; margin:auto;}
+    .cards {display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:20px;}
+    .card {background:white; padding:20px; border-radius:10px; box-shadow:0 4px 8px rgba(0,0,0,0.1);}
+    footer {background:#222; color:white; text-align:center; padding:20px; margin-top:auto;}
+
+    /* Chat styles */
+    .chat-container {background:white; width:400px; max-width:90vw; height:500px; margin:40px auto; display:flex; flex-direction:column; border-radius:10px; box-shadow:0 5px 15px rgba(0,0,0,0.2);}
+    #messages {flex:1; padding:10px; overflow-y:auto; border-bottom:1px solid #ddd;}
+    #messages div {margin-bottom:10px; padding:6px 10px; border-radius:8px; word-wrap:break-word;}
+    form {display:flex;}
+    input {flex:1; padding:10px; border:none; border-top:1px solid #ddd; font-size:1rem; border-bottom-left-radius:10px;}
+    button {padding:10px; border:none; background:#4e73df; color:white; font-weight:bold; cursor:pointer; border-bottom-right-radius:10px; transition:background 0.3s ease;}
+    button:hover {background:#3752b4;}
+
+    @media (max-width:600px){.hero h1{font-size:2rem;}}
+</style>
+</head>
+<body>
+
+<header>
+    <h2>MinLogga</h2>
+    <nav>
+        <a href="#">Hem</a>
+
+    </nav>
+</header>
+
+
+
+
+
+<section class="chat-container">
+    <div id="messages"></div>
+    <form id="form">
+        <input id="input" autocomplete="off" placeholder="Skriv meddelande..." />
+        <button>Skicka</button>
+    </form>
+</section>
+
+<footer>
+    <p>&copy; 2026 </p>
+</footer>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+// Be om användarnamn
+let username = "";
+while (!username) {
+    username = prompt("Skriv ditt namn för chatten:");
+}
+
+// Färger för användare
+const colors = ["#e6194b","#3cb44b","#ffe119","#4363d8","#f58231","#911eb4","#46f0f0","#f032e6","#bcf60c","#fabebe"];
+const userColors = {}; // spara varje användares färg
+
+const form = document.getElementById("form");
+const input = document.getElementById("input");
+const messages = document.getElementById("messages");
+
+form.addEventListener("submit", e => {
+    e.preventDefault();
+    if (input.value) {
+        socket.emit("chat message", { user: username, text: input.value });
+        input.value = "";
+    }
+});
+
+// Visa meddelanden med färg på användarnamn
+socket.on("chat message", msg => {
+    const item = document.createElement("div");
+
+    // Tilldela färg om ny användare
+    if(!userColors[msg.user]){
+        userColors[msg.user] = colors[Math.floor(Math.random()*colors.length)];
+    }
+
+    item.innerHTML = `<strong style="color:${userColors[msg.user]}">${msg.user}:</strong> ${msg.text}`;
+    messages.appendChild(item);
+    messages.scrollTop = messages.scrollHeight;
+});
+</script>
+
+</body>
+</html>
