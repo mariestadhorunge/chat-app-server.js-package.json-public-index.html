@@ -123,6 +123,7 @@
   </div>
   <div id="chat">
     <ul id="messages"></ul>
+	<div id="typingStatus" style="font-style: italic; color: yellow; height: 20px;"></div>
     <div id="inputContainer">
       <input id="messageInput" autocomplete="off" placeholder="Skriv meddelande..." />
       <button id="sendBtn">Skicka</button>
@@ -146,10 +147,117 @@ const containerDiv = document.getElementById("container");
 const usernameInput = document.getElementById("usernameInput");
 const passwordInput = document.getElementById("passwordInput");
 const enterChatBtn = document.getElementById("enterChatBtn");
+
+
+
 const messages = document.getElementById("messages");
 const messageInput = document.getElementById("messageInput");
 const sendBtn = document.getElementById("sendBtn");
 const usersUl = document.getElementById("users");
+
+// ─────────── TYPING STATUS ───────────
+const typingStatus = document.getElementById("typingStatus");
+let typingTimeout; // ← declare timeout variable
+
+// Send typing event when user types
+messageInput.addEventListener("input", () => {
+  const isTyping = messageInput.value.length > 0;
+  socket.emit("typing", isTyping);
+  
+  // Clear previous timeout
+  clearTimeout(typingTimeout);
+  
+    // After 2 seconds of inactivity, emit "stopped typing"
+  typingTimeout = setTimeout(() => {
+    socket.emit("typing", false);
+  }, 2000);
+  
+});
+
+// Receive typing events from others
+socket.on("typing", ({ username: typingUser, isTyping }) => {
+  if (isTyping) {
+    typingStatus.textContent = `${typingUser} skriver...`;
+  } else {
+    typingStatus.textContent = "";
+  }
+});
+
+
+
+
+
+// ─────────── PASTE IMAGE SUPPORT ───────────
+// NY KOD START: Paste images into chat
+document.addEventListener("paste", (e) => {
+  const items = e.clipboardData?.items;
+  if(!items) return;
+
+  for (const item of items) {
+    if (item.type.indexOf("image") === 0) {
+      const file = item.getAsFile();
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataURL = reader.result;
+        socket.emit("chat image", dataURL);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+});
+socket.on("chat image", (imgObj) => {
+  const li = document.createElement("li");
+
+  // Add username
+  const nameSpan = document.createElement("span");
+  nameSpan.textContent = imgObj.name + ": ";
+  if(imgObj.isAdmin) nameSpan.style.color = "#FF8C00";
+  if(imgObj.isMod) nameSpan.style.color = "#355872";
+  li.appendChild(nameSpan);
+
+  // Add image
+  const img = document.createElement("img");
+  img.src = imgObj.data;
+  img.style.maxWidth = "200px";
+  img.style.maxHeight = "200px";
+  img.style.display = "block";
+  img.style.marginTop = "5px";
+  img.style.cursor = "pointer"; // ← NY KOD
+
+  // ───── NY KOD START: Click to open full image ─────
+img.onclick = () => {
+  const overlay = document.createElement("div");
+  overlay.style.position = "fixed";
+  overlay.style.top = "0";
+  overlay.style.left = "0";
+  overlay.style.width = "100vw";
+  overlay.style.height = "100vh";
+  overlay.style.background = "rgba(0,0,0,0.8)";
+  overlay.style.display = "flex";
+  overlay.style.alignItems = "center";
+  overlay.style.justifyContent = "center";
+  overlay.style.zIndex = "9999";
+
+  const fullImg = document.createElement("img");
+  fullImg.src = imgObj.data;
+  fullImg.style.maxWidth = "90%";
+  fullImg.style.maxHeight = "90%";
+  fullImg.style.boxShadow = "0 0 20px black";
+
+  overlay.appendChild(fullImg);
+
+  overlay.onclick = () => overlay.remove(); // click anywhere to close
+  document.body.appendChild(overlay);
+};
+// ───── NY KOD SLUT ─────
+
+  li.appendChild(img);
+
+  messages.appendChild(li);
+  messages.scrollTop = messages.scrollHeight;
+});
+// NY KOD SLUT
+//
 
 // Visa lösenordsfält beroende på namn
 usernameInput.addEventListener("input", () => {
@@ -198,6 +306,9 @@ socket.on("chat message", (msgObj) => {
   const text = msgObj.text;
   const isAdmin = msgObj.isAdmin;
   const isMod = msgObj.isMod;
+  
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  li.textContent = `[${time}] `;
   // NY KOD START
 // Kolla om meddelandet innehåller @username och markera det
 const messageText = text.replace(/@(\w+)/g, (match, p1) => {
@@ -206,6 +317,8 @@ const messageText = text.replace(/@(\w+)/g, (match, p1) => {
   }
   return match;
 });
+
+
 
 
 
@@ -263,13 +376,34 @@ li.appendChild(textNode);
 // Skicka meddelande
 sendBtn.onclick = () => {
   const msg = messageInput.value.trim();
-  if(msg){
+  if(!msg) return;
+
+  // ───── PM SUPPORT ─────
+  if (msg.startsWith("/pm ")) {
+    const parts = msg.split(" ");
+    const target = parts[1];
+    const text = parts.slice(2).join(" ");
+
+    if (target && text) {
+      socket.emit("private message", { target, text });
+    }
+  } else {
     socket.emit("chat message", msg);
-    messageInput.value = "";
   }
+
+  messageInput.value = "";
 };
 messageInput.addEventListener("keypress", e => {
   if(e.key === "Enter") sendBtn.click();
+});
+// ───── PRIVATE MESSAGE RECEIVE ─────
+socket.on("private message", ({ from, text }) => {
+  const li = document.createElement("li");
+  li.style.color = "purple";           // color for PMs
+  li.style.fontStyle = "italic";
+  li.textContent = `(PM från ${from}): ${text}`;
+  messages.appendChild(li);
+  messages.scrollTop = messages.scrollHeight;
 });
 
 // Uppdatera användarlista

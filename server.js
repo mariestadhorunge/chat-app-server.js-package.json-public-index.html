@@ -9,6 +9,8 @@ const io = new Server(server);
 
 
 
+
+
 const livereload = require("livereload");
 const connectLivereload = require("connect-livereload");
 
@@ -33,6 +35,8 @@ io.on("connection", (socket) => {
     socket.username = username;
     socket.isAdmin = (username === "Admin" && password === "1");
     socket.isMod = (username === "Mod" && password === "1");
+	
+	
 
     // Lägg till användare i listan
     users.push({
@@ -49,6 +53,23 @@ io.on("connection", (socket) => {
       isMod: socket.isMod
     });
   });
+  // Listen for typing events
+socket.on("typing", (isTyping) => {
+  // Broadcast to everyone except the typing user
+  socket.broadcast.emit("typing", { username: socket.username, isTyping });
+});
+    // ───── NY KOD START: Receive pasted images ─────
+  socket.on("chat image", (dataURL) => {
+    const user = users.find(u => u.name === socket.username);
+
+    io.emit("chat image", {
+      name: socket.username,
+      data: dataURL,
+      isAdmin: user?.isAdmin || false,
+      isMod: user?.isMod || false
+    });
+  });
+  // ───── NY KOD SLUT ─────
 
   socket.on("chat message", (msg) => {
     const user = users.find(u => u.name === socket.username);
@@ -59,6 +80,17 @@ io.on("connection", (socket) => {
       isMod: user?.isMod || false
     });
   });
+  socket.on("private message", ({ target, text }) => {
+  const targetSocket = [...io.sockets.sockets.values()]
+    .find(s => s.username === target);
+
+  if (targetSocket) {
+    targetSocket.emit("private message", {
+      from: socket.username,
+      text
+    });
+  }
+});
   
    // ────── HÄR SKA DU LÄGGA IN KICK-KODEN ──────
   // NY KOD START: Kicka användare
