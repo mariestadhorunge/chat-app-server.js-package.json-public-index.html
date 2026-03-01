@@ -1,98 +1,265 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Serverchat</title>
-<style>
-    * {margin:0; padding:0; box-sizing:border-box;}
-    body {font-family: Arial; line-height:1.6; background:#f4f4f4; display:flex; flex-direction:column; min-height:100vh;}
-    header {background:#333; color:white; padding:1rem 2rem; display:flex; justify-content:space-between; align-items:center;}
-    nav a {color:white; text-decoration:none; margin-left:20px;}
-    nav a:hover {text-decoration:underline;}
-    .hero {background:linear-gradient(to right,#4e73df,#1cc88a); color:white; padding:100px 20px; text-align:center;}
-    .hero h1 {font-size:3rem; margin-bottom:20px;}
-    .container {padding:40px 20px; max-width:1000px; margin:auto;}
-    .cards {display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:20px;}
-    .card {background:white; padding:20px; border-radius:10px; box-shadow:0 4px 8px rgba(0,0,0,0.1);}
-    footer {background:#222; color:white; text-align:center; padding:20px; margin-top:auto;}
+  <meta charset="UTF-8">
+  <title>serverchat</title>
+  <style>
+    body {
+      font-family: Arial;
+      background: #333; /* mörk bakgrund på sidan */
+      color: #eee;
+      margin: 0;
+      padding: 20px;
+    }
 
-    /* Chat styles */
-    .chat-container {background:white; width:400px; max-width:90vw; height:500px; margin:40px auto; display:flex; flex-direction:column; border-radius:10px; box-shadow:0 5px 15px rgba(0,0,0,0.2);}
-    #messages {flex:1; padding:10px; overflow-y:auto; border-bottom:1px solid #ddd;}
-    #messages div {margin-bottom:10px; padding:6px 10px; border-radius:8px; word-wrap:break-word;}
-    form {display:flex;}
-    input {flex:1; padding:10px; border:none; border-top:1px solid #ddd; font-size:1rem; border-bottom-left-radius:10px;}
-    button {padding:10px; border:none; background:#4e73df; color:white; font-weight:bold; cursor:pointer; border-bottom-right-radius:10px; transition:background 0.3s ease;}
-    button:hover {background:#3752b4;}
+    #login {
+      max-width: 400px;
+      margin: 220px auto;
+      text-align: center;
+    }
 
-    @media (max-width:600px){.hero h1{font-size:2rem;}}
-</style>
+    #login input, #login button {
+      padding: 10px;
+      font-size: 16px;
+      margin: 2px;
+    }
+
+    #container {
+      display: flex;
+      max-width: 800px;
+      margin: 20px auto;
+      display: none;
+    }
+
+    #userList {
+      width: 200px;
+      border:1px solid #ccc;
+      padding:10px;
+      background:#fff;
+      color:#000;
+    }
+
+    #userList h3 {
+      margin-top: 0;
+    }
+
+    #userList ul {
+      list-style:none;
+      padding-left:0;
+    }
+
+    #chat {
+      flex:1;
+      margin-left:20px;
+      display:flex;
+      flex-direction:column;
+    }
+
+    #messages {
+      list-style:none;
+      padding:10px;
+      height:300px;
+      overflow-y:scroll;
+      border:1px solid #ccc;
+      background:#fff;
+      color:#000;
+      margin-bottom:10px;
+    }
+
+    #inputContainer {
+      display: flex;
+      margin-top: 5px;
+    }
+
+    #messageInput {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px 0 0 4px;
+    }
+
+    #sendBtn {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-left: none;
+      border-radius: 0 4px 4px 0;
+      cursor: pointer;
+      background-color: #eee;
+    }
+  </style>
 </head>
+
+<!-- <script src="http://localhost:35729/livereload.js"></script> --> 
+
 <body>
 
-<header>
-    <h2>test</h2>
-    <nav>
-        <a href="#">Hem</a>
+<div id="login">
+  <h2>!</h2>
+  <input type="text" id="usernameInput" placeholder="Ange ditt namn" />
+  <br>
+  <input type="password" id="passwordInput" placeholder="Lösenord" style="display:none;" />
+  <br>
+  <button id="enterChatBtn">Gå med i chatten</button>
+</div>
 
-    </nav>
-</header>
-
-
-
-
-
-<section class="chat-container">
-    <div id="messages"></div>
-    <form id="form">
-        <input id="input" autocomplete="off" placeholder="Skriv meddelande..." />
-        <button>Skicka</button>
-    </form>
-</section>
-
-<footer>
-    <p>&copy; 2026 </p>
-</footer>
+<div id="container">
+  <div id="userList">
+    <h4>Användare</h4>
+    <ul id="users"></ul>
+  </div>
+  <div id="chat">
+    <ul id="messages"></ul>
+    <div id="inputContainer">
+      <input id="messageInput" autocomplete="off" placeholder="Skriv meddelande..." />
+      <button id="sendBtn">Skicka</button>
+    </div>
+  </div>
+</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
-
-// Be om användarnamn
 let username = "";
-while (!username) {
-    username = prompt("Skriv ditt namn för chatten:");
-}
 
-// Färger för användare
-const colors = ["#e6194b","#3cb44b","#ffe119","#4363d8","#f58231","#911eb4","#46f0f0","#f032e6","#bcf60c","#fabebe"];
-const userColors = {}; // spara varje användares färg
+const ADMIN_NAME = "Admin";
+const ADMIN_PASSWORD = "1";
 
-const form = document.getElementById("form");
-const input = document.getElementById("input");
+const MOD_NAME = "Mod";
+const MOD_PASSWORD = "1";
+
+const loginDiv = document.getElementById("login");
+const containerDiv = document.getElementById("container");
+const usernameInput = document.getElementById("usernameInput");
+const passwordInput = document.getElementById("passwordInput");
+const enterChatBtn = document.getElementById("enterChatBtn");
 const messages = document.getElementById("messages");
+const messageInput = document.getElementById("messageInput");
+const sendBtn = document.getElementById("sendBtn");
+const usersUl = document.getElementById("users");
 
-form.addEventListener("submit", e => {
-    e.preventDefault();
-    if (input.value) {
-        socket.emit("chat message", { user: username, text: input.value });
-        input.value = "";
-    }
+// Visa lösenordsfält beroende på namn
+usernameInput.addEventListener("input", () => {
+  const name = usernameInput.value.trim();
+  if(name === ADMIN_NAME || name === MOD_NAME){
+    passwordInput.style.display = "inline-block";
+  } else {
+    passwordInput.style.display = "none";
+  }
 });
 
-// Visa meddelanden med färg på användarnamn
-socket.on("chat message", msg => {
-    const item = document.createElement("div");
+// Gå med i chatten
+enterChatBtn.onclick = () => {
+  const name = usernameInput.value.trim();
+  const password = passwordInput.value;
 
-    // Tilldela färg om ny användare
-    if(!userColors[msg.user]){
-        userColors[msg.user] = colors[Math.floor(Math.random()*colors.length)];
+  if(name === ADMIN_NAME && password !== ADMIN_PASSWORD){
+    alert("Fel lösenord för Admin!");
+    return;
+  }
+  if(name === MOD_NAME && password !== MOD_PASSWORD){
+    alert("Fel lösenord för Mod!");
+    return;
+  }
+
+  if(name){
+    username = name;
+    loginDiv.style.display = "none";
+    containerDiv.style.display = "flex";
+    socket.emit("join", username, password);
+  }
+};
+
+// Ta emot meddelanden
+socket.on("chat message", (msgObj) => {
+  const li = document.createElement("li");
+  const name = msgObj.name;
+  const text = msgObj.text;
+  const isAdmin = msgObj.isAdmin;
+  const isMod = msgObj.isMod;
+
+  const nameSpan = document.createElement("span");
+
+  if(isAdmin){
+    const img = document.createElement("img");
+    img.src = "/AdminIcon.png";
+    img.style.width = "16px";
+    img.style.height = "16px";
+    img.style.verticalAlign = "middle";
+    img.style.marginRight = "4px";
+    li.appendChild(img);
+    nameSpan.style.color = "#FF8C00";
+    nameSpan.style.fontWeight = "bold";
+  } else if(isMod){
+    const img = document.createElement("img");
+    img.src = "/ModIcon.png";
+    img.style.width = "16px";
+    img.style.height = "16px";
+    img.style.verticalAlign = "middle";
+    img.style.marginRight = "4px";
+    li.appendChild(img);
+    nameSpan.style.color = "#355872";
+    nameSpan.style.fontWeight = "bold";
+  }
+
+  nameSpan.textContent = name + ":";
+  li.appendChild(nameSpan);
+  li.appendChild(document.createTextNode(text));
+
+  messages.appendChild(li);
+  messages.scrollTop = messages.scrollHeight;
+});
+
+// Skicka meddelande
+sendBtn.onclick = () => {
+  const msg = messageInput.value.trim();
+  if(msg){
+    socket.emit("chat message", msg);
+    messageInput.value = "";
+  }
+};
+messageInput.addEventListener("keypress", e => {
+  if(e.key === "Enter") sendBtn.click();
+});
+
+// Uppdatera användarlista
+socket.on("updateUsers", (users) => {
+  usersUl.innerHTML = "";
+  users.forEach(u => {
+    const li = document.createElement("li");
+		//Admin
+    if(u.isAdmin){
+      const img = document.createElement("img");
+      img.src = "/AdminIcon.png";
+      img.style.width = "16px";
+      img.style.height = "16px";
+      img.style.verticalAlign = "middle";
+      img.style.marginRight = "4px";
+      li.appendChild(img);
+      li.classList.add("me");
+	  li.style.color = "#FF8C00";  //färg i användar listan
+	  li.style.fontWeight = "bold";
+
+	  //MODERATOR
+    } else if(u.isMod){
+      const img = document.createElement("img");
+      img.src = "/ModIcon.png";
+      img.style.width = "16px";
+      img.style.height = "16px";
+      img.style.verticalAlign = "middle";
+      img.style.marginRight = "4px";
+      li.appendChild(img);
+      li.classList.add("mod");
+	  li.style.color = "#355872"; //färg i användar listan
+	  li.style.fontWeight = "bold";
     }
 
-    item.innerHTML = `<strong style="color:${userColors[msg.user]}">${msg.user}:</strong> ${msg.text}`;
-    messages.appendChild(item);
-    messages.scrollTop = messages.scrollHeight;
+    const nameText = document.createTextNode(u.name);
+    li.appendChild(nameText);
+
+    usersUl.appendChild(li);
+  });
 });
 </script>
 
