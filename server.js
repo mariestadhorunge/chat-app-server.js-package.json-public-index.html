@@ -59,6 +59,32 @@ io.on("connection", (socket) => {
       isMod: user?.isMod || false
     });
   });
+  
+   // ────── HÄR SKA DU LÄGGA IN KICK-KODEN ──────
+  // NY KOD START: Kicka användare
+  socket.on("kick", (targetName) => {
+    // Endast Admin kan kicka
+    if (!socket.isAdmin) return;
+
+    // Hitta socket för användaren som ska kickas
+    const targetSocket = Array.from(io.sockets.sockets.values()).find(s => s.username === targetName);
+    if(targetSocket){
+      // Skicka meddelande om att användaren blev kickad
+      targetSocket.emit("kicked", "Du har blivit kickad av Admin!");
+      // Koppla bort användaren
+      targetSocket.disconnect(true);
+	      // Skicka meddelande till chatten att Admin kickade användaren
+    io.emit("chat message", {
+      name: "Admin",
+      text: `har kickat ${targetName}`,
+      isAdmin: true,
+      isMod: false
+    });
+    }
+  });
+  // NY KOD SLUT
+  //
+  
 
   socket.on("disconnect", () => {
     if(socket.username){
@@ -74,6 +100,8 @@ io.on("connection", (socket) => {
     console.log("En användare lämnade");
   });
 });
+
+
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
